@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>QuickTable v29.3 — iPhone Builder (tap-on-touchstart)</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#111826; --panel2:#0f1520; --border:#223047; --text:#e7ecf3; --muted:#9fb0c8; --accent:#4da3ff;
+    --push:#6d4b8e; --mr:#c24a4a; --limp:#7fcf7f;
+    --rowpad: 10px 12px; --sat: 1; --bright: 1;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color: transparent;touch-action: manipulation}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.35 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{max-width:1100px;margin:0 auto;padding:12px;padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  h1{margin:0;font-size:18px;color:#cfe0ff;text-align:center;letter-spacing:.3px}
+  .toolbar{position:sticky;top:0;z-index:1000;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+  .titleHold{display:flex;justify-content:center;align-items:center;gap:8px;margin-bottom:8px}
+  .status{font-size:11px;border:1px solid var(--border);border-radius:999px;padding:2px 8px;background:#0f1520;color:#9db3d5}
+  .status.ok{color:#8ee18e;border-color:#2f6b2f}
+  /* Builder */
+  .builder{display:grid;gap:10px}
+  .section{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:10px}
+  .secHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .secHead b{font-size:14px;color:#e0eafe}
+  .gridRanks{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  button.btn{border:1px solid var(--border);background:#101a2b;border-radius:12px;padding:14px 0;text-align:center;font-weight:900;font-size:18px;user-select:none;cursor:pointer;position:relative;overflow:hidden;width:100%}
+  button.small{padding:10px 0;font-size:16px}
+  button.tiny{padding:8px 0;font-size:14px}
+  .btn.active{outline:2px solid var(--accent);outline-offset:2px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .seg5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .chip{padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#111a2b;font-size:13px}
+  .ghost{background:#0f1520}
+  /* ripple */
+  .btn:after{content:"";position:absolute;inset:auto;left:50%;top:50%;width:0;height:0;border-radius:999px;background:rgba(255,255,255,.12);transform:translate(-50%,-50%);pointer-events:none}
+  .btn.ripple:after{width:180%;height:180%;transition:width .22s ease,height .22s ease,opacity .35s ease;opacity:0}
+  /* Results overlay */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:900}
+  .overlay.show{display:flex}
+  .sheet{width:100%;max-width:980px;background:var(--panel);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:10px 10px 14px}
+  .drag{width:44px;height:5px;background:#2b3954;border-radius:999px;margin:4px auto 10px}
+  .cols{display:grid;gap:10px}
+  @media (min-width:860px){ .cols{grid-template-columns:repeat(2,1fr)} }
+  .col{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:12px;padding:8px;filter:saturate(var(--sat)) brightness(var(--bright))}
+  .col h3{margin:6px 0 8px;text-align:center;font-size:16px;color:#e0eafe}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .card{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--border);background:#0f1624;border-radius:12px;padding:var(--rowpad);min-height:46px}
+  .label{font-weight:800;opacity:.95}
+  .val{font-weight:900;padding:8px 12px;border-radius:10px;min-width:124px;text-align:center;font-size:17px}
+  .hintRow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;justify-content:center}
+  .hint{font-size:11px;color:#8ea5c9}
+  /* Editor modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:1200}
+  .modal.show{display:flex}
+  .panel{width:min(760px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px}
+  .panel h4{margin:0 0 10px}
+  textarea{width:100%;min-height:260px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+  .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+  .toolModal .row{justify-content:space-between;border-bottom:1px dashed #2a3142;padding:8px 0}
+  .toolModal .row:last-child{border-bottom:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <div class="titleHold" id="titleHold">
+      <h1>QuickTable v29.3 — iPhone Builder</h1>
+      <span id="status" class="status">Need: Hand & Stack</span>
+    </div>
+    <div class="builder">
+      <!-- HAND -->
+      <div class="section" id="handSec">
+        <div class="secHead">
+          <b>Ръка</b>
+          <div class="row">
+            <span class="chip" id="curHand">—</span>
+            <button class="btn tiny ghost" id="clearHand" type="button">Изчисти</button>
+          </div>
+        </div>
+        <div class="gridRanks" id="rankGrid"></div>
+        <div class="row" id="typeRow" style="margin-top:6px">
+          <button class="btn small" data-type="pair" type="button">Pair</button>
+          <button class="btn small" data-type="s" type="button">suited (s)</button>
+          <button class="btn small" data-type="o" type="button">offsuit (o)</button>
+        </div>
+      </div>
+      <!-- STACK -->
+      <div class="section">
+        <div class="secHead">
+          <b>Стак</b>
+          <span class="chip" id="curStack">—</span>
+        </div>
+        <div class="seg5" id="stackGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Results sheet -->
+<div class="overlay" id="sheet">
+  <div class="sheet">
+    <div class="drag"></div>
+    <div class="cols">
+      <div class="col">
+        <h3>HUSB & BU</h3>
+        <div class="list" id="R_HUSB"></div>
+      </div>
+      <div class="col">
+        <h3>HUBB</h3>
+        <div class="list" id="R_HUBB"></div>
+      </div>
+      <div class="col">
+        <h3>SB</h3>
+        <div class="list" id="R_SB"></div>
+      </div>
+      <div class="col">
+        <h3>BB</h3>
+        <div class="list" id="R_BB"></div>
+      </div>
+    </div>
+    <div class="hintRow">
+      <span class="hint">Лонг-тап върху ред → редакция за позиция×стак</span>
+    </div>
+  </div>
+</div>
+
+<!-- Editor (data input) -->
+<div class="modal" id="editor">
+  <div class="panel">
+    <h4 id="edTitle">Редакция</h4>
+    <div class="hint" style="margin-bottom:8px">Формат: <code>HAND = ACTION</code> или <code>default = ACTION</code>. За PUSH: <code>HAND = 75</code> или <code>default = 40</code>.</div>
+    <textarea id="cellEditor"></textarea>
+    <div class="actions">
+      <button class="btn" id="saveCell" type="button">Запази</button>
+      <button class="btn ghost" id="cancelCell" type="button">Откажи</button>
+      <button class="btn" id="clearCell" type="button" style="border-color:#e44747;color:#e44747">Изчисти</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tools -->
+<div class="modal toolModal" id="tools">
+  <div class="panel">
+    <h4>Настройки</h4>
+    <div class="row">
+      <span class="hint">Compact rows</span>
+      <button class="btn" id="compact" type="button">Вкл/Изкл</button>
+    </div>
+    <div class="row">
+      <span class="hint">Color intensity</span>
+      <input type="range" id="intensity" min="60" max="120" value="100" />
+    </div>
+    <div class="row">
+      <span class="hint">Export / Import</span>
+      <div class="row">
+        <button class="btn" id="exportBtn" type="button">Export JSON</button>
+        <label class="btn" for="importFile">Import JSON</label>
+        <input id="importFile" type="file" accept="application/json" style="display:none" />
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="closeTools" type="button">Затвори</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ==== helpers & config
+  const COLORS = {
+    "FOLD":"#f4f6fa", "L-F-F":"#a7e8a7", "L-C-F":"#155d15", "L-C-AI":"#bcdcf3", "L-R-AI":"#0b3a94",
+    "MR-F-F":"#ffe27a", "MR-C-AI":"#7b4a2a", "MR-4B-AI":"#e44747", "SHOVE":"#6d4b8e"
+  };
+  const col = (act)=> act ? (COLORS[(act+"").toUpperCase()]||"#2a2f3c") : "#2a2f3c";
+  const norm = (s)=> (s||"").toUpperCase().replace(/\\s+/g,"");
+  const hexToRgb = (h)=>{ const c=h.replace("#",""); const n=parseInt(c,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; }
+  const needsDark = (h)=>{ const {r,g,b}=hexToRgb(h); return ((r*299+g*587+b*114)/1000)>160; };
+  const vibr = (ms=12)=>{ if (navigator.vibrate) try{ navigator.vibrate(ms);}catch{} }
+  const activate = (el, fn)=>{
+    const handler = (e)=>{ e.preventDefault(); el.classList.add('ripple'); setTimeout(()=>el.classList.remove('ripple'),240); vibr(); fn(e); };
+    el.addEventListener('touchstart', handler, {passive:false});
+    el.addEventListener('mousedown', handler);
+    el.addEventListener('click', (e)=>{ e.preventDefault(); }); // предотвратяване на двойно активиране
+  };
+
+  // positions & aliases
+  const CARDS = {
+    HUSB: [
+      {label:"HUSB", key:"HUSB", neutral:true},
+      {label:"BU", key:"BU", neutral:true}
+    ],
+    HUBB: [
+      {label:"HUBB (Limp)", key:"HUBB_L"},
+      {label:"HUBB (MR)", key:"HUBB_MR"},
+      {label:"HUBB (Push)", key:"HUBBv_PUSH"}
+    ],
+    SB: [
+      {label:"SBvsBU (MR)", key:"SBvsBU"},
+      {label:"SBvsBU (Push)", key:"SBvsBU_PUSH"},
+      {label:"SBvsBB", key:"SBvsBB_PUSH", neutral:true}
+    ],
+    BB: [
+      {label:"BBvsBU (MR)", key:"BBvsBU_MR"},
+      {label:"BBvsBU (Push)", key:"BBvsBU_PUSH"},
+      {label:"BBvsSB (Limp)", key:"BBvsSB_L"},
+      {label:"BBvsSB (MR)", key:"BBvsSB_MR"},
+      {label:"BBvsSB (Push)", key:"BBvsSB_PUSH"}
+    ]
+  };
+  function aliasForSpecialLimp(key, act){
+    const up = (act||"").toUpperCase();
+    if (!(key==="BBvsSB_L" || key==="HUBB_L")) return {display: act, color: null};
+    if (up==="MR-F-F") return {display:"Check/Call", color: COLORS["MR-F-F"]};
+    if (up==="L-C-AI") return {display:"ISO/Call", color: COLORS["L-C-AI"]};
+    if (up==="SHOVE")   return {display:"ISO/3bet AI", color: COLORS["SHOVE"]};
+    if (up==="MR-4B-AI")return {display:"ISO/3bet/Fold", color: COLORS["MR-4B-AI"]};
+    return {display: act, color: null};
+  }
+
+  // persistence
+  let data = JSON.parse(localStorage.getItem("qt_v293_data")||"{}");
+  const k = (pos,stk)=> pos+"||"+stk;
+  const get = (pos,stk)=> data[k(pos,stk)] || {raw:""};
+  const set = (pos,stk,raw)=>{ data[k(pos,stk)] = {raw: raw||""}; localStorage.setItem("qt_v293_data", JSON.stringify(data)); };
+
+  function parseRaw(raw, push=false){
+    if(!raw) return {def:null,map:{}};
+    const lines = raw.split(/\\r?\\n|;/).map(s=>s.trim()).filter(Boolean);
+    let def=null, map={};
+    for(const ln of lines){
+      const m = ln.split("=");
+      if(m.length===1){ const v=m[0].trim(); if(!v) continue; def = push ? toNum(v) : v.toUpperCase(); }
+      else{
+        const hand = norm(m[0]); const v = m.slice(1).join("=").trim();
+        if(/^DEFAULT$/i.test(hand)) def = push ? toNum(v) : v.toUpperCase();
+        else if(hand) map[hand] = push ? toNum(v) : v.toUpperCase();
+      }
+    }
+    return {def,map};
+  }
+  const toNum = (x)=>{ const n=parseFloat(String(x).replace(",", ".")); return Number.isFinite(n)?n:null; };
+  const isPushPos = (pos)=> pos.toUpperCase().includes("PUSH");
+
+  // ===== Builder state
+  const ranks = "A K Q J T 9 8 7 6 5 4 3 2".split(" ");
+  let first=null, second=null, type="s"; // 'pair' | 's' | 'o'
+  let stackRange=null;
+
+  const rankGrid = document.getElementById("rankGrid");
+  ranks.forEach(r=>{
+    const b=document.createElement("button");
+    b.className="btn"; b.type="button"; b.setAttribute("role","button"); b.tabIndex=0;
+    b.textContent=r; b.dataset.r=r;
+    activate(b, ()=>{
+      if (!first){ first=r; b.classList.add("active"); }
+      else if (!second){
+        second=r;
+        if (first===second){ type="pair"; markType(); }
+        updateHandChip(); maybeShow();
+      } else {
+        clearRanks(); first=r; b.classList.add("active");
+      }
+      updateHandChip();
+    });
+    rankGrid.appendChild(b);
+  });
+
+  function clearRanks(){
+    first=null; second=null; document.querySelectorAll('#rankGrid .btn').forEach(x=> x.classList.remove('active'));
+    updateStatus();
+  }
+  function markType(){
+    document.querySelectorAll('#typeRow .btn').forEach(x=> x.classList.toggle('active', x.dataset.type===type));
+    updateStatus();
+  }
+  document.getElementById("typeRow").querySelectorAll('.btn').forEach(x=> activate(x, ()=>{
+    type = x.dataset.type; markType(); updateHandChip(); maybeShow();
+  }));
+  document.getElementById("clearHand").addEventListener("click", ()=>{ clearRanks(); updateHandChip(); });
+
+  // stack
+  const stackGrid = document.getElementById("stackGrid");
+  ["0–4","4–7","7–10","10–13","13+"].forEach(s=>{
+    const b=document.createElement("button");
+    b.className="btn"; b.type="button"; b.setAttribute("role","button"); b.tabIndex=0; b.textContent=s; b.dataset.stack=s;
+    activate(b, ()=>{
+      stackRange = s;
+      stackGrid.querySelectorAll('.btn').forEach(x=> x.classList.toggle('active', x===b));
+      document.getElementById("curStack").textContent = stackRange || "—";
+      updateStatus(); maybeShow();
+    });
+    stackGrid.appendChild(b);
+  });
+
+  function handText(){
+    if (!first || !second) return null;
+    if (first===second) return first+second;
+    return first + second + (type==="pair" ? "" : type);
+  }
+  function updateHandChip(){
+    const h = handText();
+    document.getElementById("curHand").textContent = h || "—";
+    updateStatus();
+  }
+
+  function updateStatus(){
+    const s = document.getElementById("status");
+    const hOk = !!handText();
+    const stOk = !!stackRange;
+    if (hOk && stOk){ s.textContent="Ready • long-tap a row to edit"; s.classList.add('ok'); }
+    else{
+      s.classList.remove('ok');
+      s.textContent = `Need: ${hOk?'':'Hand '}${(!hOk&&!stOk)?'& ':''}${stOk?'':'Stack'}`.trim();
+    }
+  }
+
+  function maybeShow(){
+    const h = handText();
+    if (h && stackRange){
+      renderResults(h, stackRange);
+      openSheet();
+    }
+  }
+
+  // ===== Results
+  function computeFor(posKey, h, stk){
+    const push = isPushPos(posKey);
+    const {def,map} = parseRaw(get(posKey, stk).raw, push);
+    const key = norm(h);
+    if (push){
+      const v = map[key]!=null ? map[key] : def;
+      const display = v==null ? "—" : String(Math.round(v*10)/10);
+      return {display, isNumber: v!=null, act: v};
+    }else{
+      const act = (map[key] || def || "—");
+      const ali = aliasForSpecialLimp(posKey, act);
+      return {display: ali.display, isNumber:false, act, aliasColor: ali.color};
+    }
+  }
+
+  function bgByVariant(label, key, value, neutral){
+    if (neutral) return "#0f1624";
+    if (/Push/i.test(label) || /PUSH/i.test(key) || /^\\d+(\\.\\d+)?$/.test(value)) return getComputedStyle(document.documentElement).getPropertyValue('--push');
+    if (/\(MR\)/i.test(label) || /_MR$/i.test(key)) return getComputedStyle(document.documentElement).getPropertyValue('--mr');
+    if (/\(Limp\)/i.test(label) || /_L$/i.test(key) || key==="BU" || key==="HUSB") return getComputedStyle(document.documentElement).getPropertyValue('--limp');
+    return '#0f1624';
+  }
+
+  function makeRow(container,label,key,h,stk,neutral=false){
+    const comp = computeFor(key,h,stk);
+    const row = document.createElement("div"); row.className="card"; row.title="Дълъг тап: редакция";
+    const lab = document.createElement("div"); lab.className="label"; lab.textContent = label;
+    const val = document.createElement("div"); val.className="val"; val.textContent = comp.display;
+
+    row.style.background = bgByVariant(label, key, comp.display, neutral);
+    if (comp.aliasColor){ val.style.background = comp.aliasColor; val.style.color = needsDark(comp.aliasColor) ? "#000" : "#fff"; }
+    else if (comp.isNumber){ val.style.background = "rgba(0,0,0,.22)"; val.style.color = "#fff"; }
+    else { const c = col(comp.display) !== "#2a2f3c" ? col(comp.display) : col(comp.act); val.style.background = c; val.style.color = needsDark(c) ? "#000" : "#fff"; }
+
+    // long press to edit
+    let tId=null;
+    const start = ()=> tId=setTimeout(()=> openEditor(key, stk), 500);
+    const cancel = ()=>{ if(tId){ clearTimeout(tId); tId=null; } };
+    row.addEventListener("touchstart", start, {passive:true});
+    row.addEventListener("touchend", cancel, {passive:true});
+    row.addEventListener("touchmove", cancel, {passive:true});
+    row.addEventListener("mousedown", start);
+    row.addEventListener("mouseup", cancel);
+    row.addEventListener("mouseleave", cancel);
+
+    row.appendChild(lab); row.appendChild(val);
+    container.appendChild(row);
+  }
+
+  function renderResults(h, stk){
+    ["R_HUSB","R_HUBB","R_SB","R_BB"].forEach(id=> document.getElementById(id).innerHTML="");
+    const G = {
+      HUSB: [{label:"HUSB", key:"HUSB", neutral:true},{label:"BU", key:"BU", neutral:true}],
+      HUBB: [{label:"HUBB (Limp)", key:"HUBB_L"},{label:"HUBB (MR)", key:"HUBB_MR"},{label:"HUBB (Push)", key:"HUBBv_PUSH"}],
+      SB:   [{label:"SBvsBU (MR)", key:"SBvsBU"},{label:"SBvsBU (Push)", key:"SBvsBU_PUSH"},{label:"SBvsBB", key:"SBvsBB_PUSH", neutral:true}],
+      BB:   [{label:"BBvsBU (MR)", key:"BBvsBU_MR"},{label:"BBvsBU (Push)", key:"BBvsBU_PUSH"},{label:"BBvsSB (Limp)", key:"BBvsSB_L"},{label:"BBvsSB (MR)", key:"BBvsSB_MR"},{label:"BBvsSB (Push)", key:"BBvsSB_PUSH"}]
+    };
+    for (const it of G.HUSB) makeRow(document.getElementById("R_HUSB"), it.label, it.key, h, stk, !!it.neutral);
+    for (const it of G.HUBB) makeRow(document.getElementById("R_HUBB"), it.label, it.key, h, stk, !!it.neutral);
+    for (const it of G.SB)   makeRow(document.getElementById("R_SB"),   it.label, it.key, h, stk, !!it.neutral);
+    for (const it of G.BB)   makeRow(document.getElementById("R_BB"),   it.label, it.key, h, stk, !!it.neutral);
+  }
+
+  function openSheet(){ document.getElementById("sheet").classList.add("show"); }
+  function closeSheet(){ document.getElementById("sheet").classList.remove("show"); }
+
+  document.querySelector("#sheet .drag").addEventListener("click", closeSheet);
+  document.getElementById("sheet").addEventListener("click", (e)=>{ if (e.target.id === "sheet") closeSheet(); });
+
+  // Editor
+  function openEditor(posKey, stk){
+    const ed = document.getElementById("editor");
+    document.getElementById("edTitle").textContent = `Редакция: ${posKey} × ${stk} (${isPushPos(posKey) ? "PUSH (числа)" : "Действия"})`;
+    document.getElementById("cellEditor").value = get(posKey, stk).raw || "";
+    ed.classList.add("show");
+    document.getElementById("saveCell").onclick = ()=>{
+      set(posKey, stk, document.getElementById("cellEditor").value);
+      ed.classList.remove("show");
+      const h = handText();
+      if (h && stackRange) renderResults(h, stackRange);
+    };
+    document.getElementById("clearCell").onclick = ()=>{ document.getElementById("cellEditor").value=""; };
+    document.getElementById("cancelCell").onclick = ()=> ed.classList.remove("show");
+  }
+
+  // Tools (long-press on title)
+  let lp=null;
+  document.getElementById("titleHold").addEventListener("touchstart", ()=>{ lp=setTimeout(()=> document.getElementById("tools").classList.add("show"), 550); }, {passive:true});
+  document.getElementById("titleHold").addEventListener("touchend", ()=>{ clearTimeout(lp); }, {passive:true});
+  document.getElementById("closeTools").addEventListener("click", ()=> document.getElementById("tools").classList.remove("show"));
+  document.getElementById("compact").addEventListener("click", ()=>{
+    const compact = getComputedStyle(document.documentElement).getPropertyValue('--rowpad').includes('8px');
+    document.documentElement.style.setProperty('--rowpad', compact ? '10px 12px' : '8px 10px');
+  });
+  document.getElementById("intensity").addEventListener("input", (e)=>{
+    const v = Number(e.target.value);
+    document.documentElement.style.setProperty('--sat', String(v/100));
+    document.documentElement.style.setProperty('--bright', String(0.8 + (v-100)/500));
+  });
+  document.getElementById("exportBtn").addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify({data}, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download="quicktable_data.json"; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  });
+  document.getElementById("importFile").addEventListener("change", (e)=>{
+    const f = e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const obj = JSON.parse(reader.result);
+        if (obj.data) { data = obj.data; localStorage.setItem("qt_v293_data", JSON.stringify(data)); }
+        const h = handText(); if (h && stackRange) renderResults(h, stackRange);
+        alert("Импортът е успешен.");
+      }catch(err){ alert("Невалиден файл."); }
+    };
+    reader.readAsText(f);
+    e.target.value="";
+  });
+
+  // init
+  // генериране на stack бутони вече е направено по-горе
+  document.querySelector('[data-type="s"]').classList.add('active');
+  document.getElementById("curHand").textContent="—";
+  document.getElementById("curStack").textContent="—";
+  updateStatus();
+})();
+</script>
+</body>
+</html>
