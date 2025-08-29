@@ -30,7 +30,11 @@
   .qHand{font-size:26px;font-weight:900}
 
   /* действия */
-  .actionsGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .actionsGrid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0,1fr)); /* без минимални ширини, за да няма хор. скрол */
+    gap:10px;
+  }
   .actBtn{
     position:relative;border:2px solid rgba(0,0,0,.18);border-radius:13px;
     padding:16px 10px;font-size:16px;font-weight:1000;letter-spacing:.3px;
@@ -40,6 +44,12 @@
   .actBtn:active{transform:translateY(1px); filter:brightness(.96)}
   .actBtn.ok{box-shadow:0 0 0 3px rgba(31,157,85,.55)}
   .actBtn.err{box-shadow:0 0 0 3px rgba(214,69,69,.55)}
+  .actBtn .lbl{
+    display:block;
+    white-space:normal;          /* позволи много редове */
+    overflow-wrap:anywhere;      /* пречупвай и при / и при дълги „думи“ */
+    line-height:1.05;
+  }
   .tag{position:absolute;right:8px;top:6px;font-size:11px;opacity:.7;color:#000}
 
   /* keypad (за PUSH) */
@@ -72,6 +82,17 @@
   .boxBody{padding:10px 12px}
   .boxFoot{display:flex;gap:8px;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--border);background:#0f1520}
   textarea{width:100%;min-height:260px;background:#0b1220;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px;font:14px/1.35 ui-monospace}
+
+  /* --- Мобилни настройки за iPhone 15 Pro Max (430px) и надолу --- */
+  @media (max-width: 480px){
+    .grid{gap:8px}
+    .actionsGrid{gap:8px}
+    .actBtn{padding:12px 6px;font-size:14px;border-radius:12px}
+    .tag{top:4px;right:6px;font-size:10px}
+  }
+  @media (max-width: 380px){
+    .actBtn{padding:10px 6px;font-size:13px}
+  }
 </style>
 </head>
 <body>
@@ -187,7 +208,6 @@
     if(up==="MR-4B-AI")return{d:"ISO/3bet/Fold",c:COLORS["MR-4B-AI"]};
     return{d:act,c:null};};
 
-  // >>> НОВО: удобна функция за показване (alias текст + цвят или оригинал)
   function resolveDisplay(key, act){
     const ali = alias(key, act);
     return {
@@ -195,7 +215,6 @@
       color: ali.c || COLORS[norm(act)] || ""
     };
   }
-  // <<< край на новото
 
   // Позиции/стакове
   const POS_LIST=["HUSB","BU","HUBB_L","HUBB_MR","HUBBv_PUSH","SBvsBU","SBvsBU_PUSH","SBvsBB","BBvsBU_MR","BBvsBU_PUSH","BBvsSB_L","BBvsSB_MR","BBvsSB_PUSH"];
@@ -443,18 +462,22 @@ T2o
         const b=document.createElement("button");
         b.className="actBtn";
 
-        // >>> НОВО: показвай alias текст + цвят за текущия спот, но пази raw действието
         const disp = resolveDisplay(curQ.pos, act);
         const bg = disp.color || "#cccccc";
         b.style.background = `linear-gradient(180deg, ${bg} 0%, ${bg} 72%, rgba(0,0,0,.06) 100%)`;
-        b.textContent = disp.text;
+
+        // --- НОВО: пречупване на по-дългите текстове на нов ред при "/" ---
+        const lbl=document.createElement("span");
+        lbl.className="lbl";
+        lbl.innerHTML = disp.text.replace(/\//g,'/<br>'); // напр. "ISO/3bet/Fold" → два реда
+        b.appendChild(lbl);
+        // ---------------------------------------------------------------
+
         const t=document.createElement("span"); t.className="tag"; t.textContent = (disp.text.includes("AI") || act.includes("AI")) ? "AI" : "";
         b.appendChild(t);
 
         // При проверка подаваме raw действието (act), за да съвпада с данните в DB
         b.onclick=()=>{ lastPressedBtn=b; checkAnswer(false, act); };
-        // <<< край на новото
-
         g.appendChild(b);
       });
       a.appendChild(g);
@@ -518,7 +541,6 @@ T2o
     }
 
     cRow.style.display="flex";
-    // >>> НОВО: показваме alias текст + цвят за правилния отговор в текущия спот
     const dispRight = resolveDisplay(curQ.pos, res.disp);
     cVal.textContent = dispRight.text;
     if(res.isNum){
@@ -526,7 +548,6 @@ T2o
     }else{
       cVal.style.background = dispRight.color || "#2a2f3c"; cVal.style.color="#000";
     }
-    // <<< край на новото
   }
 
   // Редактор
@@ -543,8 +564,8 @@ T2o
   }
   document.getElementById("btnEdit").onclick=openEditor;
   document.getElementById("editClose").onclick=()=>editModal.classList.remove("show");
-  editPos.addEventListener("change",()=>{editArea.value=get(editPos.value,editStk.value)||""; document.getElementById("editMeta").textContent=`(${editPos.value} × ${editStk.value})`;});
-  editStk.addEventListener("change",()=>{editArea.value=get(editPos.value,editStk.value)||""; document.getElementById("editMeta").textContent=`(${editPos.value} × ${editStк.value})`;});
+  editPos.addEventListener("change",()=>{editArea.value=get(editPos.value,editStk.value)||""; document.getElementById("editMeta").textContent=`(${editPos.value} × ${editStк.value})`;});
+  editStk.addEventListener("change",()=>{editArea.value=get(editPos.value,editStk.value)||""; document.getElementById("editMeta").textContent=`(${editPos.value} × ${editStk.value})`;});
   document.getElementById("editSave").onclick=()=>{ set(editPos.value, editStk.value, editArea.value); editModal.classList.remove("show"); };
   document.getElementById("editClear").onclick=()=>{ if(confirm("Да изчистя тази клетка?")){ set(editPos.value, editStk.value, ""); editModal.classList.remove("show"); } };
 
@@ -575,9 +596,6 @@ T2o
     const hid=card.classList.toggle("hidden");
     btn.textContent=hid?"Покажи":"Скрий";
   };
-
-  // EDITOR & DATA modal open/close already wired above
-
 })();
 </script>
 </body>
